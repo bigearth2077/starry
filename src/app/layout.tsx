@@ -1,0 +1,17 @@
+import "./globals.css";
+import { Providers } from "./providers";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="zh-CN">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+// 根布局：引入全局样式和 Providers 组件

@@ -26,75 +26,103 @@ model Teacher {
 }
 
 model Semester {
-  id            String   @id @default(cuid())
-  teacherId     String
-  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  name          String
-  startDate     DateTime
-  endDate       DateTime
-  baseTuition   Decimal  @db.Decimal(10, 2) // 该生本学期基础学费可从这里继承，也可做学生级覆盖
-  perSessionFee Decimal  @db.Decimal(10, 2) // 单次课程费用
-  currency      String   @default("CNY")
-  classes       Class[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name      String
+
+  // 不再直接存起止/费用；通过 ClassTerm 聚合出视图
+  classTerms ClassTerm[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teacherId, name]) // 老师下学期名去重（可选）
 }
 
 model Class {
-  id                    String         @id @default(cuid())
-  teacherId             String
-  teacher               Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  semesterId            String
-  semester              Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  name                  String
-  // 周几上课：0=Sun...6=Sat，简单存 int 数组；如果需要更复杂节次，可做另一张 Rule 表
-  weekdays              Int[] // e.g. [1,3,5]
-  perSessionFeeOverride Decimal?       @db.Decimal(10, 2)
-  sessions              ClassSession[]
-  enrollments           Enrollment[]
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name      String
+
+  classTerms ClassTerm[] // ← 必须存在（班级-学期 关系）
+  students   Student[] // ← 新增：班级下的学生列表
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teacherId, name])
 }
 
 model Student {
-  id          String       @id @default(cuid())
-  name        String
-  phone       String?
-  note        String?
+  id String @id @default(cuid())
+
+  // 学生隶属班级（你之前的需求）
+  classId String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  name  String
+  phone String?
+  note  String?
+
   enrollments Enrollment[]
-  absences    Absence[] // ← 新增：作为 Absence.student 的反向关系字段
+  absences    Absence[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  // 同一个班里不允许重名
+  @@unique([classId, name])
 }
 
-model Enrollment {
-  id        String  @id @default(cuid())
-  studentId String
-  classId   String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class     Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+model ClassTerm {
+  id         String   @id @default(cuid())
+  classId    String
+  semesterId String
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  semester   Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
 
-  // 可选：为该学生设置本学期基础学费覆盖（不填则用 Semester.baseTuition）
-  baseTuitionOverride Decimal? @db.Decimal(10, 2)
+  // 该班级在该学期内的具体安排与费用
+  startDate     DateTime
+  endDate       DateTime
+  weekdays      Int[] // 0..6，上课周几
+  perSessionFee Decimal  @db.Decimal(10, 2)
+  currency      String   @default("CNY")
+
+  sessions    ClassSession[]
+  enrollments Enrollment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([studentId, classId])
+  @@unique([classId, semesterId, startDate, endDate], name: "class_sem_term_span") // 可选防重复
 }
 
 model ClassSession {
-  id       String        @id @default(cuid())
-  classId  String
-  class    Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
-  date     DateTime
-  status   SessionStatus @default(PLANNED)
-  absences Absence[]
+  id          String        @id @default(cuid())
+  classTermId String
+  classTerm   ClassTerm     @relation(fields: [classTermId], references: [id], onDelete: Cascade)
+  date        DateTime
+  status      SessionStatus @default(PLANNED)
+  absences    Absence[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([classId, date], name: "classId_date") // ← 命名，便于 upsert 使用 where.classId_date
+  @@unique([classTermId, date], name: "classTermId_date")
+}
+
+model Enrollment {
+  id          String    @id @default(cuid())
+  studentId   String
+  classTermId String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classTerm   ClassTerm @relation(fields: [classTermId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, classTermId])
 }
 
 model Absence {
@@ -106,5 +134,5 @@ model Absence {
   reason    String?
   createdAt DateTime     @default(now())
 
-  @@unique([sessionId, studentId], name: "sessionId_studentId") // ← 命名，便于 upsert 使用 where.sessionId_studentId
+  @@unique([sessionId, studentId], name: "sessionId_studentId")
 }

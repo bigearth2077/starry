@@ -1,27 +1,45 @@
+// src/app/api/classes/[id]/students/route.ts   ← 注意路径名与 [id] 一致
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTeacher, Unauthorized } from "@/lib/require-teacher";
 import { z } from "zod";
 
+export const runtime = "nodejs";
+
+const ImportBody = z.object({
+  text: z.string().min(1, "请输入至少一个名字"),
+});
+
+function normalizeLine(s: string) {
+  const trimmed = s.trim();
+  if (!trimmed) return "";
+  const filtered = trimmed.replace(/[^A-Za-z.\-\s]/g, "");
+  return filtered.replace(/\s+/g, " ");
+}
+
 // GET: 列出该班学生
 export async function GET(
   _: NextRequest,
-  { params }: { params: { classId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
+    const { id } = await params; // ← 这里是 id，不是 classId
+
+    // 班级归属校验（按老师）
     const cls = await prisma.class.findFirst({
-      where: { id: params.classId, teacherId },
+      where: { id, teacherId },
       select: { id: true },
     });
-    if (!cls)
+    if (!cls) {
       return NextResponse.json(
         { error: "班级不存在或无权限" },
         { status: 404 }
       );
+    }
 
     const items = await prisma.student.findMany({
-      where: { classId: cls.id },
+      where: { classId: cls.id, class: { teacherId } }, // 收紧到当前老师
       orderBy: { name: "asc" },
       select: { id: true, name: true, createdAt: true },
     });
@@ -31,70 +49,58 @@ export async function GET(
   }
 }
 
-// POST: 批量导入（纯文本，每行一个名字）
-const ImportBody = z.object({
-  text: z.string().min(1, "请输入至少一个名字"),
-});
-
-function normalizeLine(s: string) {
-  // 去前后空白，中间多空格压缩为单空格；仅保留字母/空格/连字符/点
-  const trimmed = s.trim();
-  if (!trimmed) return "";
-  // 你可以根据需要更严格：这里只允许 A-Z a-z 空格 - .
-  const filtered = trimmed.replace(/[^A-Za-z.\-\s]/g, "");
-  return filtered.replace(/\s+/g, " ");
-}
-
+// POST: 批量导入
 export async function POST(
   req: NextRequest,
-  { params }: { params: { classId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
+    const { id } = await params; // ← 这里是 id，不是 classId
     const data = ImportBody.parse(await req.json());
 
-    // 班级归属校验
+    // 班级归属校验（按老师）
     const cls = await prisma.class.findFirst({
-      where: { id: params.classId, teacherId },
+      where: { id, teacherId },
       select: { id: true },
     });
-    if (!cls)
+    if (!cls) {
       return NextResponse.json(
         { error: "班级不存在或无权限" },
         { status: 404 }
       );
+    }
 
-    // 解析行
-    const lines = data.text.split(/\r?\n/);
-    const names = Array.from(new Set(lines.map(normalizeLine).filter(Boolean)));
+    const names = Array.from(
+      new Set(data.text.split(/\r?\n/).map(normalizeLine).filter(Boolean))
+    );
 
     if (names.length === 0) {
       return NextResponse.json({ error: "没有有效的名字" }, { status: 400 });
     }
 
-    // 读已有重名，避免报错
+    // 已有重名（同班）
     const existing = await prisma.student.findMany({
       where: { classId: cls.id, name: { in: names } },
       select: { name: true },
     });
     const existingSet = new Set(existing.map((e) => e.name));
+
     const toCreate = names.filter((n) => !existingSet.has(n));
-
-    if (toCreate.length === 0) {
-      return NextResponse.json({ imported: 0, skipped: names.length });
+    if (toCreate.length > 0) {
+      await prisma.student.createMany({
+        data: toCreate.map((n) => ({ classId: cls.id, name: n })),
+      });
     }
-
-    await prisma.student.createMany({
-      data: toCreate.map((n) => ({ classId: cls.id, name: n })),
-    });
 
     return NextResponse.json({
       imported: toCreate.length,
       skipped: names.length - toCreate.length,
     });
   } catch (e) {
-    if (e instanceof Unauthorized)
+    if (e instanceof Unauthorized) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     return NextResponse.json({ error: "导入失败" }, { status: 500 });
   }
 }

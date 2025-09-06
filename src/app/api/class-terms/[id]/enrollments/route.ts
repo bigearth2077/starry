@@ -1,19 +1,28 @@
+// src/app/api/class-terms/[id]/enrollments/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTeacher, Unauthorized } from "@/lib/require-teacher";
 import { z } from "zod";
 
+// （可选）强制 Node 运行时
+export const runtime = "nodejs";
+
+const Body = z.object({
+  studentIds: z.array(z.string()).min(1),
+});
+
 // GET: 列出该 term 已选学生
 export async function GET(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
+    const { id } = await params; // ← 关键：先 await params
 
     // 校验 term 归属（通过 class.teacherId）
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id, class: { teacherId } },
       select: { id: true, classId: true },
     });
     if (!term)
@@ -31,26 +40,27 @@ export async function GET(
     return NextResponse.json({
       items: items.map((e) => ({ id: e.student.id, name: e.student.name })),
     });
-  } catch {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  } catch (e) {
+    // 如果是未登录
+    if (e instanceof Unauthorized) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "加载失败" }, { status: 500 });
   }
 }
-
-const Body = z.object({
-  studentIds: z.array(z.string()).min(1),
-});
 
 // POST: 批量添加选课（幂等，已存在的跳过）
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
+    const { id } = await params; // ← await
     const data = Body.parse(await req.json());
 
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id, class: { teacherId } },
       select: { id: true, classId: true },
     });
     if (!term)
@@ -62,9 +72,9 @@ export async function POST(
       select: { id: true },
     });
     const validIds = new Set(validStudents.map((s) => s.id));
-    const toAdd = Array.from(validIds).map((id) => ({
+    const toAdd = Array.from(validIds).map((sid) => ({
       classTermId: term.id,
-      studentId: id,
+      studentId: sid,
     }));
 
     if (toAdd.length === 0)
@@ -99,14 +109,15 @@ export async function POST(
 // DELETE: 批量移除选课（不存在的忽略）
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
+    const { id } = await params; // ← await
     const data = Body.parse(await req.json());
 
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id, class: { teacherId } },
       select: { id: true, classId: true },
     });
     if (!term)

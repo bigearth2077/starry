@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ImportStudentsForm({ classId }: { classId: string }) {
   const [text, setText] = useState("");
@@ -7,27 +7,41 @@ export default function ImportStudentsForm({ classId }: { classId: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // 切换班级时，重置本地状态，避免把上一班的数据提交到新班
+  useEffect(() => {
+    setText("");
+    setMsg(null);
+    setErr(null);
+    setLoading(false);
+  }, [classId]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
     setErr(null);
     setLoading(true);
-    const r = await fetch(`/api/classes/${classId}/students`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    setLoading(false);
-    if (!r.ok) {
+
+    try {
+      console.log("classId", classId);
+      const r = await fetch(`/api/classes/${classId}/students`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
       const j = await r.json().catch(() => ({}));
-      setErr(j.error || "导入失败");
-      return;
+      if (!r.ok) {
+        setErr(j.error || "导入失败");
+      } else {
+        setMsg(`已导入 ${j.imported} 个，跳过 ${j.skipped} 个`);
+        setText("");
+        // 刷新以拉取最新 students 列表
+        location.reload();
+      }
+    } catch (e) {
+      setErr("网络错误");
+    } finally {
+      setLoading(false);
     }
-    const j = await r.json();
-    setMsg(`已导入 ${j.imported} 个，跳过 ${j.skipped} 个`);
-    setText("");
-    // 刷新
-    location.reload();
   }
 
   return (

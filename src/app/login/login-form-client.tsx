@@ -22,7 +22,7 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     const res = await signIn("credentials", {
       email,
       password,
-      redirect: false,
+      redirect: true,
       callbackUrl,
     });
     setLoading(false);

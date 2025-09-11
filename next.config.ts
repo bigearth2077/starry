@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     // 生产构建时忽略 ESLint（代码仍会在本地或CI跑 lint）
     ignoreDuringBuilds: true,
   },
+  typedRoutes: false,
   experimental: {
     typedRoutes: false,
   },

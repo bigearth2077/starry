@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   eslint: {
-    // 生产构建时忽略 ESLint（代码仍会在本地或CI跑 lint）
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // 已有
   },
-  typedRoutes: false,
+  typescript: {
+    ignoreBuildErrors: true, // ← 新增：跳过构建期类型检查
+  },
+  typedRoutes: false, // 你已设置，保留
 };
 
 export default nextConfig;

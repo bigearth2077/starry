@@ -1,6 +1,5 @@
 "use client";
-
-import { Suspense } from "react";
+export const dynamic = "force-dynamic";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -38,49 +37,47 @@ export default function LoginPage() {
   }
 
   return (
-    <Suspense fallback={null}>
-      <div className="min-h-dvh flex items-center justify-center p-4">
-        <Card className="w-full max-w-sm">
-          <CardContent className="p-6 space-y-4">
-            <h1 className="text-xl font-semibold text-center">登录</h1>
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div>
-                <Label>邮箱</Label>
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <Label>密码</Label>
-                <Input
-                  type="password"
-                  placeholder="至少8位"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-              {err && <p className="text-sm text-red-500">{err}</p>}
-              <Button className="w-full" disabled={loading}>
-                {loading ? "登录中..." : "登录"}
-              </Button>
-            </form>
-            <p className="text-center text-sm">
-              还没有账号？{" "}
-              <a className="underline" href="/register">
-                去注册
-              </a>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </Suspense>
+    <div className="min-h-dvh flex items-center justify-center p-4">
+      <Card className="w-full max-w-sm">
+        <CardContent className="p-6 space-y-4">
+          <h1 className="text-xl font-semibold text-center">登录</h1>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label>邮箱</Label>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <Label>密码</Label>
+              <Input
+                type="password"
+                placeholder="至少8位"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            {err && <p className="text-sm text-red-500">{err}</p>}
+            <Button className="w-full" disabled={loading}>
+              {loading ? "登录中..." : "登录"}
+            </Button>
+          </form>
+          <p className="text-center text-sm">
+            还没有账号？{" "}
+            <a className="underline" href="/register">
+              去注册
+            </a>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 // 登录页：表单提交到 NextAuth，登录后重定向

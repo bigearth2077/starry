@@ -16,15 +16,16 @@ function fmt(d?: Date | null) {
 export default async function SemesterDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   const teacherId = (session.user as any).teacherId as string;
 
   // 学期信息
+  const { id } = await params;
   const semester = await prisma.semester.findFirst({
-    where: { id: params.id, teacherId },
+    where: { id: id, teacherId },
     select: { id: true, name: true },
   });
   if (!semester) redirect("/dashboard");

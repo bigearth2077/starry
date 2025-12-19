@@ -9,14 +9,15 @@ import ManageSessionsDialog from "./ui/manage-sessions-dialog";
 export default async function ClassTermPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   const teacherId = (session.user as any).teacherId as string;
 
   const term = await prisma.classTerm.findFirst({
-    where: { id: params.id, class: { teacherId } },
+    where: { id: id, class: { teacherId } },
     select: {
       id: true,
       startDate: true,

@@ -11,14 +11,15 @@ function fmtDate(d: Date) {
 export default async function BillingPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   const teacherId = (session.user as any).teacherId as string;
 
   const { termMeta, rows, classTermTotal } = await computeClassTermBilling(
-    params.id,
+    id,
     teacherId
   );
 

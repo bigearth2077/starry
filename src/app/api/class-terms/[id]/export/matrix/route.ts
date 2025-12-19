@@ -14,10 +14,13 @@ function head2(d: Date) {
   return { top: `${yy}.${m}.${day}`, bottom: `周${wd}` };
 }
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  _: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { teacherId } = await requireTeacher();
-    const data = await computeClassTermBilling(params.id, teacherId);
+    const data = await computeClassTermBilling((await params).id, teacherId);
     const {
       termMeta,
       rows,
@@ -64,7 +67,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FFFFC7CE" },
-    }; // 缺席  
+    }; // 缺席
     const center = { vertical: "middle", horizontal: "center" } as const;
 
     for (const stu of enrollments) {

@@ -6,13 +6,14 @@ import { enumerateWeekdayDates } from "@/lib/schedule";
 
 export async function POST(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
 
+    const { id } = await params;
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id: id, class: { teacherId } },
       select: { id: true, startDate: true, endDate: true, weekdays: true },
     });
     if (!term)

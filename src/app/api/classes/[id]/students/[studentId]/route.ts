@@ -17,12 +17,12 @@ function normalizeName(s: string) {
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { classId: string; studentId: string } }
+  { params }: { params: Promise<{ classId: string; studentId: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
     const cls = await prisma.class.findFirst({
-      where: { id: params.classId, teacherId },
+      where: { id: (await params).classId, teacherId },
       select: { id: true },
     });
     if (!cls)
@@ -37,7 +37,7 @@ export async function PATCH(
 
     // 冲突校验（同班内重名）
     const conflict = await prisma.student.findFirst({
-      where: { classId: cls.id, name, NOT: { id: params.studentId } },
+      where: { classId: cls.id, name, NOT: { id: (await params).studentId } },
       select: { id: true },
     });
     if (conflict)
@@ -47,7 +47,7 @@ export async function PATCH(
       );
 
     const updated = await prisma.student.update({
-      where: { id: params.studentId },
+      where: { id: (await params).studentId },
       data: { name },
       select: { id: true, name: true },
     });
@@ -61,12 +61,15 @@ export async function PATCH(
 
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { classId: string; studentId: string } }
+  { params }: { params: Promise<{ classId: string; studentId: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
     const own = await prisma.student.findFirst({
-      where: { id: params.studentId, class: { id: params.classId, teacherId } },
+      where: {
+        id: (await params).studentId,
+        class: { id: (await params).classId, teacherId },
+      },
       select: { id: true },
     });
     if (!own)
@@ -75,7 +78,7 @@ export async function DELETE(
         { status: 404 }
       );
 
-    await prisma.student.delete({ where: { id: params.studentId } });
+    await prisma.student.delete({ where: { id: (await params).studentId } });
     return NextResponse.json({ ok: true });
   } catch (e) {
     if (e instanceof Unauthorized)

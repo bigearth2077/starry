@@ -7,7 +7,7 @@ const Body = z.object({ studentId: z.string() });
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
@@ -15,7 +15,10 @@ export async function POST(
 
     // 权限校验：session 归属 & 学生须是该 term 的学生
     const session = await prisma.classSession.findFirst({
-      where: { id: params.sessionId, classTerm: { class: { teacherId } } },
+      where: {
+        id: (await params).sessionId,
+        classTerm: { class: { teacherId } },
+      },
       select: { id: true, classTermId: true },
     });
     if (!session)

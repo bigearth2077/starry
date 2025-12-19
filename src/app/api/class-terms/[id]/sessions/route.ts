@@ -15,14 +15,15 @@ function asUTCDate(isoDate: string) {
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
     const data = Body.parse(await req.json());
 
+    const { id } = await params;
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id: id, class: { teacherId } },
       select: { id: true },
     });
     if (!term)

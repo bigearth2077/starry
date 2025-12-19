@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTeacher, Unauthorized } from "@/lib/require-teacher";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  _: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { teacherId } = await requireTeacher();
 
+    const { id } = await params;
+
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id: id, class: { teacherId } },
       select: {
         id: true,
         startDate: true,

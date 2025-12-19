@@ -4,14 +4,14 @@ import { requireTeacher, Unauthorized } from "@/lib/require-teacher";
 
 export async function DELETE(
   _: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
 
     // 确认学期属于当前老师
     const sem = await prisma.semester.findFirst({
-      where: { id: params.id, teacherId },
+      where: { id: (await params).id, teacherId },
       select: { id: true },
     });
     if (!sem) {
@@ -22,7 +22,7 @@ export async function DELETE(
     }
 
     // 删除学期（会级联删除关联的 ClassTerm / Session / Absence 等）
-    await prisma.semester.delete({ where: { id: params.id } });
+    await prisma.semester.delete({ where: { id: (await params).id } });
 
     return NextResponse.json({ ok: true });
   } catch (e) {

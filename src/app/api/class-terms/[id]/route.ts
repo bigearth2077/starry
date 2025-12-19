@@ -17,14 +17,15 @@ const PatchBody = z.object({
 
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { teacherId } = await requireTeacher();
 
     // 权限校验
+    const { id } = await params;
     const term = await prisma.classTerm.findFirst({
-      where: { id: params.id, class: { teacherId } },
+      where: { id: id, class: { teacherId } },
       select: { id: true },
     });
     if (!term)

@@ -6,11 +6,16 @@ import ExcelJS from "exceljs";
 export const runtime = "nodejs"; // 确保不是 Edge
 export const dynamic = "force-dynamic"; // 避免缓存
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  _: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { teacherId } = await requireTeacher();
     const { termMeta, rows, classTermTotal } = await computeClassTermBilling(
-      params.id,
+      (
+        await params
+      ).id,
       teacherId
     );
 
